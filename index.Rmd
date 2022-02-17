@@ -1,0 +1,219 @@
+---
+title: "Modelling performance barbell lifts"
+author: "Ben Kooi"
+date: "16-2-2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Synopsis
+The goal of assignment is to analyze how effective the training is of barbell lifting based on the measurements of all kinds of body sensors. The effectiveness is classified as letters 'A' until 'E'.
+The classification is modelled with three different algorithms treebagging, random forest and gradient boosting.
+
+The outcome of the different models are the same on the 20 cases in the testing-set. The best performing model is the random forest-model and will be used to answer the questions of the Course Assignment Prediction Quiz.
+
+
+## Setting the environment
+
+```{r message=FALSE}
+
+# loading the needed packages
+packages <- c("caret", "gbm", "randomForest", "janitor", "dplyr", "ggplot2")
+sapply(packages, require, character.only=TRUE, quietly=TRUE)
+
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Prepare the datasets 
+
+The following steps are taken to prepare the training and validation-datasets:      
+1. Read the datasets for training and testing the models;    
+2. The testing-dataset is the reference for the training- and validation-dataset, so at first the testing-dataset is cleaned;    
+3. A new dataframe 'data' is constructed from the testing-dataset with only 49 of the original 160 variables. Most of the variables had no values at all;      
+4. The dataframe 'data' is partitioned to the dataframes 'training' and 'validation'.  
+
+
+```{r prepareDatasets, cache = TRUE}
+
+# load training and testing datasets where undefined values are converted to NA
+data <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", na.strings = c("#DIV/0!", "NA", ""))
+testing <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", na.strings = c("#DIV/0!", "NA",""))
+
+# remove empty columns from testing-dataset
+testing <- remove_empty(testing, which = "cols")
+
+# read the columnnames from the testing-dataset in a list
+columnnames <- names(testing)
+
+# remove the columname 'problem_id' from the list
+columnnames <- columnnames[columnnames != "problem_id"]
+
+# add the columname 'classe' to the list
+columnnames <- c(columnnames, "classe")
+
+# create a new dataframe from the selected columnnames of the testing-dataset
+data <- data %>% select(all_of(columnnames))
+
+# remove unnecessary columns from the dataframe
+data <- subset(data, select = -c(X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, num_window, new_window, cvtd_timestamp) )
+
+# remove all the columns within the string 'total' 
+data <- data %>% select(-contains(c('total')))
+
+# convert 'classe'-variable to factor
+data$classe <- as.factor(data$classe)
+
+# print the structure of the dataframe
+str(data)
+
+# create training and validation-sets
+trainIndex <- createDataPartition(data$classe, p=0.8, list=FALSE)
+training <- data[ trainIndex,]
+validation <- data[-trainIndex,]
+
+# construct testing-set
+data <- subset(data, select = -c(classe))
+columnnames <- names(data)
+testing <- testing %>% select(all_of(columnnames))
+
+```
+
+## Model selection
+
+For selecting the most accurate model, three algorithms are chosen:    
+* Treebagging;  
+* Random Forest;  
+* Gradient Boosting.  
+
+For tuning the algorithms, the dependent variable 'classe' will be calculated from all the other independent variables (predictors).
+
+Printing and plotting the models will give information about the accuracy and the best values for the tuning-parameters. These values are used in the final models which are used to validate the outcomes on the validation-dataset. In the final section 'Plots' you can find this information.
+
+
+```{r modelSelection, cache = TRUE}
+
+set.seed(123)
+
+# train a Treebagging-model with the default parameters and all the variables
+modelTb <- train(classe ~ ., data=training, method="treebag")
+
+# train a Random Forest-model with the default parameters and all the variables
+modelRf <- train(classe ~ ., data=training, method="rf")
+
+# train a Gradient Boosting-model with the default parameters and all the variables
+modelGbm <- train(classe ~ ., data=training, method="gbm", verbose = FALSE)
+
+# print the trained Treebagging-model
+modelTb
+
+# print the trained Random Forest-model
+modelRf
+
+# print the trained Gradient Boosting-model
+modelGbm
+
+```
+
+## Final models
+
+Based on the cross-validation of the different models, the best performing model in this case is Random Forest.
+
+```{r finalModels, cache = TRUE}
+
+set.seed(1234)
+
+# train a Treebagging-model with the default parameters and all the variables
+finalmodelTb <- train(classe ~ ., data=training, method="treebag")
+
+# train a Random Forest-model with all the variables
+finalmodelRf <- train(classe ~ .
+                      , data=training
+                      , method="rf"
+                      , ntree=150
+                      , tuneGrid = expand.grid(.mtry = 25))
+
+# train a Gradient Boosting-model with all the variables
+finalmodelGbm <- train(classe ~ .
+                       , data=training
+                       , method="gbm"
+                       , tuneGrid = expand.grid(n.trees=150, 
+                                                interaction.depth=3, 
+                                                shrinkage=.1, 
+                                                n.minobsinnode = 10)
+                       ,verbose = FALSE)
+
+# predict with the final Treebagging-model
+predictTb <- predict(finalmodelTb, validation)
+
+# predict with the final Random Forest-model
+predictRf <- predict(finalmodelRf, validation)
+
+# predict with the final Random Forest-model
+predictGbm <- predict(finalmodelGbm, validation)
+
+```
+
+## Out of sample errors
+
+The best performing algorithm seem to be Random Forest.
+
+``` {r oosError}
+
+# Cross-validate the treebagging-algorithm and showing the confusionmatrix, overall statistics and calculate the out of sample error.
+cmTb <- confusionMatrix(predictTb,validation$classe)
+cmTb
+cmTb$overall
+oosErrorTb <- 1 - cmTb$overall['Accuracy']
+
+# Cross-validate the random forest-algorithm and showing the confusionmatrix, overall statistics and calculate the out of sample error.
+cmRf <- confusionMatrix(predictRf,validation$classe)
+cmRf
+cmRf$overall
+oosErrorRf <- 1 - cmRf$overall['Accuracy']
+
+# Cross-validate the gradient boosting-algorithm and showing the confusionmatrix, overall statistics and calculate the out of sample error.
+cmGbm <- confusionMatrix(predictGbm,validation$classe)
+cmGbm
+cmGbm$overall
+oosErrorGbm <- 1 - cmGbm$overall['Accuracy']
+
+```
+
+The out of sample error of the three algorithms are:  
+* treebagging       -> **`r oosErrorTb`**;  
+* random forest     -> **`r oosErrorRf`**;  
+* gradient boosting -> **`r oosErrorGbm`**.  
+
+
+## Prediction on 20 testcases
+
+The three different algorithms classifies the 20 test-cases with the same values. There seems no need to ensemble or stack the algorithms to improve accuracy. The outcome of the 20 test-cases will not be shown and only used for answering the questions Course Assignment Prediction Quiz.
+
+``` {r predictTestcases}
+
+# Predict the outcome of the testing-dataset with the final model of the treebagging-algorithm
+predictTestCasesTb <- predict(finalmodelTb, testing)
+
+# Predict the outcome of the testing-dataset with the final model of the random forest-algorithm
+predictTestCasesRf <- predict(finalmodelRf, testing)
+
+# Predict the outcome of the testing-dataset with the final model of the gradient-algorithm
+predictTestCasesGbm <- predict(finalmodelGbm, testing)
+
+```
+
+
+## Plots
+
+This section shows the plots on which the tuning-parameters are based on.
+``` {r plots, cache = TRUE}
+plot(modelRf, main="Random Forest - Randomly selected variables vs. Accuracy")
+plot(modelRf$finalModel, main="Random Forest - Amount of trees vs. Error-rate")
+plot(varImp(modelTb), main="Treebagging - Order of importance of used variables")
+plot(varImp(modelRf), main="Random Forest - Order of importance of used variables")
+plot(varImp(modelGbm),main="Gradient Boosting - Order of importance of used variables")
+```
