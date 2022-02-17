@@ -5,8 +5,8 @@ packages <- c("caret", "randomForest", "gbm", "janitor", "dplyr", "ggplot2")
 sapply(packages, require, character.only=TRUE, quietly=TRUE)
 
 # load trianing and testing datasets
-data <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", na.strings = c("#DIV/0!", "NA"))
-testing <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", na.strings = c("#DIV/0!", "NA"))
+data <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", na.strings = c("#DIV/0!", "NA", ""))
+testing <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", na.strings = c("#DIV/0!", "NA",""))
 
 # remove empty columns from testing-dataset
 testing <- remove_empty(testing, which = "cols")
@@ -98,5 +98,25 @@ finalmodelGbm <- train(classe ~ ., data=training, method="gbm",
                     n.minobsinnode = 10
                   )
                   , verbose = FALSE)
-finalmodelGbm
-finalmodelGbm$finalModel
+finalmodelGbm$accuracy
+finalmodelGbm$finalModel$accuracy
+
+finalmodelRf <- train(classe ~ .
+                      , data=training
+                      , method="rf"
+                      , ntree=150
+                      , tuneGrid = expand.grid(.mtry = 2))
+
+# construct testing-set
+data <- subset(data, select = -c(classe))
+columnnames <- names(data)
+testing <- testing %>% select(all_of(columnnames))
+
+predictTestCasesTb <- predict(finalmodelTb, testing)
+predictTestCasesTb
+
+predictTestCasesRf <- predict(finalmodelRf, testing)
+predictTestCasesRf
+
+predictTestCasesGbm <- predict(finalmodelGbm, testing)
+predictTestCasesGbm
