@@ -120,3 +120,19 @@ predictTestCasesRf
 
 predictTestCasesGbm <- predict(finalmodelGbm, testing)
 predictTestCasesGbm
+
+cmTb <- confusionMatrix(predictTb,validation$classe)
+cmTb
+cmTb$overall
+oosErrorTb <- 1 - cmTb$overall['Accuracy']
+
+cmRf <- confusionMatrix(predictRf,validation$classe)
+cmRf
+cmRf$overall
+oosErrorRf <- 1 - cmRf$overall['Accuracy']
+oosErrorRf
+cmGbm <- confusionMatrix(predictGbm,validation$classe)
+cmGbm
+cmGbm$overall
+oosErrorGbm <- 1 - cmGbm.overall['Accuracy']
+

@@ -1,5 +1,5 @@
 ---
-title: "Modeling performance barbell lifts"
+title: "Modelling performance barbell lifts"
 author: "Ben Kooi"
 date: "16-2-2022"
 output:
@@ -10,20 +10,15 @@ output:
 ## Synopsis
 The goal of assignment is to analyze how effective the training is of barbell lifting based on the measurements of all kinds of body sensors. The effectiveness is classified as letters 'A' until 'E'.
 The classification is modelled with three different algorithms treebagging, random forest and gradient boosting.
-The out of sample error of the three algorithms are:  
-* treebagging       -> 1.61%
-* random forest     -> 0.51%
-* gradient boosting -> 3.98%
 
-The outcome of the different models are the same on the 20 cases in the testing-set. The best performing model is the random forest-model and will be used to answer the questions of the Quorse Assignment Prediction Quiz.
+The outcome of the different models are the same on the 20 cases in the testing-set. The best performing model is the random forest-model and will be used to answer the questions of the Course Assignment Prediction Quiz.
 
 
 ## Setting the environment
 
-Het laden van de R-packages en het defineren van variabelen.
 ```{r message=FALSE}
 
-#laden van packages
+# loading the needed packages
 packages <- c("caret", "janitor", "dplyr")
 sapply(packages, require, character.only=TRUE, quietly=TRUE)
 
@@ -151,34 +146,63 @@ finalmodelGbm <- train(classe ~ .
                                                 n.minobsinnode = 10)
                        ,verbose = FALSE)
 
-# predict and cross-validate the final Treebagging-model
+# predict with the final Treebagging-model
 predictTb <- predict(finalmodelTb, validation)
-confusionMatrix(predictTb,validation$classe)
 
-# predict and cross-validate the final Random Forest-model
+# predict with the final Random Forest-model
 predictRf <- predict(finalmodelRf, validation)
-confusionMatrix(predictRf,validation$classe)
 
-# predict and cross-validate the final Random Forest-model
+# predict with the final Random Forest-model
 predictGbm <- predict(finalmodelGbm, validation)
-confusionMatrix(predictGbm,validation$classe)
 
 ```
 
+## Out of sample errors
+
+The best performing algorithm seem to be Random Forest.
+
+``` {r oosError}
+
+# Cross-validate the treebagging-algorithm and showing the confusionmatrix, overall statistics and calculate the out of sample error.
+cmTb <- confusionMatrix(predictTb,validation$classe)
+cmTb
+cmTb$overall
+oosErrorTb <- 1 - cmTb$overall['Accuracy']
+
+# Cross-validate the random forest-algorithm and showing the confusionmatrix, overall statistics and calculate the out of sample error.
+cmRf <- confusionMatrix(predictRf,validation$classe)
+cmRf
+cmRf$overall
+oosErrorRf <- 1 - cmRf$overall['Accuracy']
+
+# Cross-validate the gradient boosting-algorithm and showing the confusionmatrix, overall statistics and calculate the out of sample error.
+cmGbm <- confusionMatrix(predictGbm,validation$classe)
+cmGbm
+cmGbm$overall
+oosErrorGbm <- 1 - cmGbm$overall['Accuracy']
+
+```
+
+The out of sample error of the three algorithms are:  
+* treebagging       -> **`r oosErrorTb`**;  
+* random forest     -> **`r oosErrorRf`**;  
+* gradient boosting -> **`r oosErrorGbm`**.  
+
+
 ## Prediction on 20 testcases
 
-The three different algorithms classifies the 20 test-cases with the same values.
+The three different algorithms classifies the 20 test-cases with the same values. There seems no need to ensemble or stack the algorithms to improve accuracy. The outcome of the 20 test-cases will not be shown and only used for answering the questions Course Assignment Prediction Quiz.
 
 ``` {r predictTestcases}
 
+# Predict the outcome of the testing-dataset with the final model of the treebagging-algorithm
 predictTestCasesTb <- predict(finalmodelTb, testing)
-predictTestCasesTb
 
+# Predict the outcome of the testing-dataset with the final model of the random forest-algorithm
 predictTestCasesRf <- predict(finalmodelRf, testing)
-predictTestCasesRf
 
+# Predict the outcome of the testing-dataset with the final model of the gradient-algorithm
 predictTestCasesGbm <- predict(finalmodelGbm, testing)
-predictTestCasesGbm
 
 ```
 
